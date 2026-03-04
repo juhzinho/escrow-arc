@@ -30,6 +30,23 @@ Base project with a Solidity escrow contract and a React dApp for Arc Testnet.
 5. As the creator, test `manualRelease(escrowId)`.
 6. After 7 days, test `refund(escrowId)`.
 
+## Contract tests
+
+Run the Hardhat test suite from the repository root:
+
+```bash
+npm install
+npm test
+```
+
+Included coverage:
+
+- escrow creation and stored state
+- release by proof
+- manual release
+- refund after timeout
+- protection against emergency withdraw of locked USDC
+
 ## Frontend setup
 
 Create `frontend/.env`:
@@ -72,6 +89,7 @@ This repo already includes `frontend/vercel.json` for SPA rewrites.
 
 ## Local validation completed
 
+- `npm test` ran successfully in the repository root
 - `npm install` ran successfully in `frontend/`
 - `npm run build` ran successfully in `frontend/`
 - local dev server responded on `http://localhost:5173`
