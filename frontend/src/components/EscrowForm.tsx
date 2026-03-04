@@ -1,5 +1,5 @@
 import { FormEvent, memo, useEffect, useState } from "react";
-import { isHexString, parseUnits } from "ethers";
+import { isHexString, type Log, type LogDescription, parseUnits } from "ethers";
 import { toast } from "react-toastify";
 import { useWallet } from "../hooks/useWallet";
 import { useI18n } from "../i18n/I18nProvider";
@@ -13,7 +13,7 @@ import {
 import { isValidAddress, safeHash } from "../lib/utils";
 
 interface EscrowFormProps {
-  onCreated: (escrowId: string) => Promise<void>;
+  onCreated: (escrowId: string | null) => Promise<void>;
 }
 
 export const EscrowForm = memo(({ onCreated }: EscrowFormProps) => {
@@ -137,8 +137,6 @@ export const EscrowForm = memo(({ onCreated }: EscrowFormProps) => {
 
     try {
       const { cleanRecipient, cleanHash, parsedAmount } = validateFields();
-      const escrowRead = getEscrowReadContract();
-      const nextEscrowId = ((await escrowRead.nextEscrowId()) as bigint).toString();
       const escrow = await getEscrowWriteContract(provider);
       const createTx = await escrow.createEscrow(cleanRecipient, parsedAmount, cleanHash);
       toast.info(
@@ -146,7 +144,17 @@ export const EscrowForm = memo(({ onCreated }: EscrowFormProps) => {
           {t.viewTx}
         </a>
       );
-      await createTx.wait();
+      const receipt = await createTx.wait();
+      const depositLog = receipt?.logs
+        .map((log: Log) => {
+          try {
+            return escrow.interface.parseLog(log);
+          } catch {
+            return null;
+          }
+        })
+        .find((parsed: LogDescription | null) => parsed?.name === "Deposit");
+      const createdEscrowId = depositLog?.args?.[0]?.toString() ?? null;
 
       setRecipient("");
       setAmount("");
@@ -154,7 +162,7 @@ export const EscrowForm = memo(({ onCreated }: EscrowFormProps) => {
 
       await refreshBalance();
       await refreshAllowance();
-      await onCreated(nextEscrowId);
+      await onCreated(createdEscrowId);
       toast.success("Escrow created");
     } catch (error) {
       toast.error(error instanceof Error ? error.message : "Transaction failed");

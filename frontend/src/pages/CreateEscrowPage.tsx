@@ -13,9 +13,13 @@ export default function CreateEscrowPage() {
       <EscrowForm
         onCreated={async (escrowId) => {
           setRefreshIndex((value) => value + 1);
-          navigate(`/escrows/${escrowId}`, {
-            state: { justCreated: true }
-          });
+          if (escrowId) {
+            navigate(`/escrows/${escrowId}`, {
+              state: { justCreated: true }
+            });
+          } else {
+            navigate("/escrows");
+          }
         }}
       />
       <div className="panel p-5 text-sm text-slate-600">
