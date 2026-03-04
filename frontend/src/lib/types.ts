@@ -1,4 +1,4 @@
-export type EscrowStatus = 0 | 1 | 2 | 3;
+export type EscrowStatus = 0 | 1 | 2 | 3 | 4;
 
 export interface Escrow {
   id: bigint;
@@ -8,6 +8,7 @@ export interface Escrow {
   conditionHash: string;
   createdAt: bigint;
   deadline: bigint;
+  proofSubmittedAt: bigint;
   status: EscrowStatus;
 }
 

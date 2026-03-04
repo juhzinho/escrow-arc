@@ -5,15 +5,49 @@
 :root {
   font-family: "Space Grotesk", "Segoe UI", sans-serif;
   color: #0f172a;
-  background:
+  --bg-main:
     radial-gradient(circle at top, rgba(15, 118, 110, 0.12), transparent 30%),
     linear-gradient(180deg, #f8fafc 0%, #eef2ff 100%);
+  --text-main: #0f172a;
+  --text-muted: #475569;
+  --panel-bg: rgba(255, 255, 255, 0.8);
+  --panel-border: rgba(255, 255, 255, 0.7);
+  --field-bg: #ffffff;
+  --field-border: #e2e8f0;
+  --field-text: #0f172a;
+  --secondary-border: #e2e8f0;
+  --secondary-text: #0f172a;
+  --soft-bg: #f1f5f9;
+  --card-bg: #ffffff;
+  --card-border: #e2e8f0;
+}
+
+:root[data-theme="dark"] {
+  --bg-main:
+    radial-gradient(circle at top, rgba(249, 115, 22, 0.12), transparent 25%),
+    linear-gradient(180deg, #020617 0%, #0f172a 100%);
+  --text-main: #e2e8f0;
+  --text-muted: #cbd5e1;
+  --panel-bg: rgba(15, 23, 42, 0.82);
+  --panel-border: rgba(148, 163, 184, 0.15);
+  --field-bg: #0f172a;
+  --field-border: #334155;
+  --field-text: #e2e8f0;
+  --secondary-border: #334155;
+  --secondary-text: #e2e8f0;
+  --soft-bg: #172033;
+  --card-bg: #0b1220;
+  --card-border: #243041;
 }
 
 body {
   margin: 0;
   min-width: 320px;
   min-height: 100vh;
+  color: var(--text-main);
+  background: var(--bg-main);
+  font-size: 16px;
+  line-height: 1.5;
 }
 
 a {
@@ -27,11 +61,16 @@ button:disabled {
 }
 
 .panel {
-  @apply rounded-3xl border border-white/70 bg-white/80 backdrop-blur shadow-panel;
+  @apply rounded-3xl backdrop-blur shadow-panel;
+  border-color: var(--panel-border);
+  background: var(--panel-bg);
 }
 
 .field {
-  @apply w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-sea focus:ring-2 focus:ring-sea/20;
+  @apply w-full rounded-2xl border px-4 py-3 text-sm outline-none transition focus:border-sea focus:ring-2 focus:ring-sea/20;
+  border-color: var(--field-border);
+  background: var(--field-bg);
+  color: var(--field-text);
 }
 
 .primary-btn {
@@ -39,5 +78,40 @@ button:disabled {
 }
 
 .secondary-btn {
-  @apply inline-flex items-center justify-center rounded-2xl border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-900 transition hover:border-sea hover:text-sea;
+  @apply inline-flex items-center justify-center rounded-2xl border px-5 py-3 text-sm font-semibold transition hover:border-sea hover:text-sea;
+  border-color: var(--secondary-border);
+  color: var(--secondary-text);
+}
+
+.card-surface {
+  background: var(--card-bg);
+  border-color: var(--card-border);
+}
+
+:root[data-theme="dark"] .text-ink {
+  color: #f8fafc !important;
+}
+
+:root[data-theme="dark"] .text-slate-600 {
+  color: #dbe4f0 !important;
+}
+
+:root[data-theme="dark"] .text-slate-500 {
+  color: #cbd5e1 !important;
+}
+
+:root[data-theme="dark"] .bg-slate-100 {
+  background-color: #1e293b !important;
+}
+
+:root[data-theme="dark"] .border-slate-200 {
+  border-color: #334155 !important;
+}
+
+:root[data-theme="dark"] .hover\:bg-slate-100:hover {
+  background-color: #1e293b !important;
+}
+
+:root[data-theme="dark"] .text-sm {
+  font-size: 0.975rem;
 }

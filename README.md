@@ -26,9 +26,10 @@ Base project with a Solidity escrow contract and a React dApp for Arc Testnet.
 1. Get testnet USDC from the Circle faucet.
 2. Approve the escrow contract to spend your test USDC.
 3. Call `createEscrow(recipient, amount, conditionHash)`.
-4. As the recipient, call `releaseByProof(escrowId, conditionHash)`.
-5. As the creator, test `manualRelease(escrowId)`.
-6. After 7 days, test `refund(escrowId)`.
+4. As the recipient, call `submitProof(escrowId, conditionHash)`.
+5. As the creator, test `manualRelease(escrowId)` during the review window.
+6. If the creator does not act, wait for the review window and call `finalizeRelease(escrowId)` as the recipient.
+7. If no proof was submitted before the timeout, test `refund(escrowId)`.
 
 ## Contract tests
 
@@ -42,8 +43,9 @@ npm test
 Included coverage:
 
 - escrow creation and stored state
-- release by proof
-- manual release
+- proof submission + delayed recipient release
+- creator manual release after proof
+- refund blocked after proof submission
 - refund after timeout
 - protection against emergency withdraw of locked USDC
 
@@ -52,7 +54,7 @@ Included coverage:
 Create `frontend/.env`:
 
 ```bash
-VITE_ESCROW_CONTRACT_ADDRESS=0xD7BAF1b3EcfCdb08b4a4e0c50e3A19a2Fe9E1e37
+VITE_ESCROW_CONTRACT_ADDRESS=0xYourNewEscrowContract
 ```
 
 Optional override:
@@ -81,7 +83,7 @@ npm run dev
    - Build command: `npm run build`
    - Output directory: `dist`
 6. Add environment variables:
-   - `VITE_ESCROW_CONTRACT_ADDRESS=0xD7BAF1b3EcfCdb08b4a4e0c50e3A19a2Fe9E1e37`
+   - `VITE_ESCROW_CONTRACT_ADDRESS=0xYourNewEscrowContract`
    - `VITE_USDC_ADDRESS=0x3600000000000000000000000000000000000000`
 7. Deploy.
 
@@ -96,6 +98,9 @@ This repo already includes `frontend/vercel.json` for SPA rewrites.
 
 ## Security notes
 
-- `refund` is permissionless after timeout.
+- `submitProof` no longer releases funds immediately.
+- `manualRelease` lets the creator accept the proof during the review window.
+- `finalizeRelease` lets the recipient receive funds only after the review window expires.
+- `refund` is permissionless after timeout, but only while no proof has been submitted.
 - `emergencyWithdraw` only allows excess USDC beyond locked escrow balances.
 - Before any production use, test with Foundry or Anvil and run additional security review tools like Slither.

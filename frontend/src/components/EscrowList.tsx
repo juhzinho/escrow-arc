@@ -25,7 +25,7 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
   const { account } = useWallet();
   const [escrows, setEscrows] = useState<Escrow[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [statusFilter, setStatusFilter] = useState<"all" | "funded" | "released" | "refunded">("all");
+  const [statusFilter, setStatusFilter] = useState<"all" | "funded" | "proof_submitted" | "released" | "refunded">("all");
   const [idFilter, setIdFilter] = useState("");
   const [createdPage, setCreatedPage] = useState(1);
   const [receivedPage, setReceivedPage] = useState(1);
@@ -60,6 +60,7 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
             conditionHash: escrow.conditionHash,
             createdAt: escrow.createdAt,
             deadline: escrow.deadline,
+            proofSubmittedAt: escrow.proofSubmittedAt,
             status: Number(escrow.status) as Escrow["status"]
           };
         })
@@ -108,8 +109,9 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
         if (idFilter.trim() && !escrow.id.toString().includes(idFilter.trim())) return false;
         if (statusFilter === "all") return true;
         if (statusFilter === "funded") return escrow.status === 1;
-        if (statusFilter === "released") return escrow.status === 2;
-        if (statusFilter === "refunded") return escrow.status === 3;
+        if (statusFilter === "proof_submitted") return escrow.status === 2;
+        if (statusFilter === "released") return escrow.status === 3;
+        if (statusFilter === "refunded") return escrow.status === 4;
         return true;
       });
 
@@ -142,8 +144,10 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
       case 1:
         return t.statusFunded;
       case 2:
-        return t.statusReleased;
+        return t.statusProofSubmitted;
       case 3:
+        return t.statusReleased;
+      case 4:
         return t.statusRefunded;
       default:
         return t.statusUnknown;
@@ -154,7 +158,7 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
     const remaining = formatTimeRemaining(escrow.deadline);
 
     return (
-    <article key={escrow.id.toString()} className="rounded-3xl border border-slate-200 bg-white p-5">
+    <article key={escrow.id.toString()} className="card-surface rounded-3xl border p-5">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="text-xs uppercase tracking-[0.2em] text-slate-500">#{escrow.id.toString()}</div>
@@ -172,13 +176,13 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
 
       <dl className="mt-4 grid gap-2 text-sm text-slate-600">
         <div className="flex items-center justify-between gap-3">
-          <span>{t.creatorLabel}: {shortenAddress(escrow.creator)}</span>
+          <span title={escrow.creator}>{t.creatorLabel}: {shortenAddress(escrow.creator)}</span>
           <button type="button" className="secondary-btn" onClick={() => void copyText(escrow.creator)}>
             {t.copy}
           </button>
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span>{t.recipientLabel}: {shortenAddress(escrow.recipient)}</span>
+          <span title={escrow.recipient}>{t.recipientLabel}: {shortenAddress(escrow.recipient)}</span>
           <button type="button" className="secondary-btn" onClick={() => void copyText(escrow.recipient)}>
             {t.copy}
           </button>
@@ -188,7 +192,7 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
           {t.timeRemaining}: {remaining ?? t.refundAvailable}
         </div>
         <div className="flex items-center justify-between gap-3">
-          <span>{t.hashLabel}: {shortenHash(escrow.conditionHash)}</span>
+          <span title={escrow.conditionHash}>{t.hashLabel}: {shortenHash(escrow.conditionHash)}</span>
           <button type="button" className="secondary-btn" onClick={() => void copyText(escrow.conditionHash)}>
             {t.copy}
           </button>
@@ -250,13 +254,14 @@ export const EscrowList = memo(({ refreshIndex }: EscrowListProps) => {
           {[
             ["all", t.filterAll],
             ["funded", t.filterFunded],
+            ["proof_submitted", t.filterProofSubmitted],
             ["released", t.filterReleased],
             ["refunded", t.filterRefunded]
           ].map(([value, label]) => (
             <button
               key={value}
               type="button"
-              onClick={() => setStatusFilter(value as "all" | "funded" | "released" | "refunded")}
+              onClick={() => setStatusFilter(value as "all" | "funded" | "proof_submitted" | "released" | "refunded")}
               className={`rounded-full px-4 py-2 text-sm font-medium transition ${
                 statusFilter === value ? "bg-ink text-white" : "bg-slate-100 text-slate-600"
               }`}

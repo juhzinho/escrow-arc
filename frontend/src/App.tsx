@@ -1,6 +1,7 @@
 import { Suspense, lazy } from "react";
 import { NavLink, Route, Routes } from "react-router-dom";
 import { LanguageToggle } from "./components/LanguageToggle";
+import { ThemeToggle } from "./components/ThemeToggle";
 import { useI18n } from "./i18n/I18nProvider";
 
 const HomePage = lazy(() => import("./pages/HomePage"));
@@ -35,7 +36,10 @@ export default function App() {
               </NavLink>
             ))}
           </nav>
-          <LanguageToggle />
+          <div className="flex items-center gap-3">
+            <ThemeToggle />
+            <LanguageToggle />
+          </div>
         </header>
 
         <main className="flex-1">

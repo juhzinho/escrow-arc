@@ -43,33 +43,57 @@ describe("EscrowPayments", function () {
     expect(item.amount).to.equal(parsedAmount);
     expect(item.conditionHash).to.equal(conditionHash);
     expect(item.status).to.equal(1n);
+    expect(item.proofSubmittedAt).to.equal(0n);
     expect(await escrow.lockedUsdc()).to.equal(parsedAmount);
   });
 
-  it("releases by proof to the recipient", async function () {
+  it("stores a valid proof and allows recipient release after review period", async function () {
     const fixture = await deployFixture();
     const { escrow, usdc, recipient } = fixture;
     const { parsedAmount, conditionHash } = await createEscrow(fixture);
 
-    await expect(escrow.connect(recipient).releaseByProof(0n, conditionHash))
+    await expect(escrow.connect(recipient).submitProof(0n, conditionHash))
+      .to.emit(escrow, "ProofSubmitted");
+
+    expect((await escrow.getEscrow(0n)).status).to.equal(2n);
+    expect(await usdc.balanceOf(recipient.address)).to.equal(0n);
+
+    await ethers.provider.send("evm_increaseTime", [2 * 24 * 60 * 60 + 1]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(escrow.connect(recipient).finalizeRelease(0n))
       .to.emit(escrow, "Release")
       .withArgs(0n, fixture.creator.address, recipient.address, parsedAmount, true);
 
     expect(await usdc.balanceOf(recipient.address)).to.equal(parsedAmount);
-    expect((await escrow.getEscrow(0n)).status).to.equal(2n);
+    expect((await escrow.getEscrow(0n)).status).to.equal(3n);
   });
 
-  it("allows the creator to manually release", async function () {
+  it("allows the creator to manually release after proof submission", async function () {
     const fixture = await deployFixture();
     const { escrow, usdc, recipient, creator } = fixture;
-    const { parsedAmount } = await createEscrow(fixture);
+    const { parsedAmount, conditionHash } = await createEscrow(fixture);
+
+    await escrow.connect(recipient).submitProof(0n, conditionHash);
 
     await expect(escrow.connect(creator).manualRelease(0n))
       .to.emit(escrow, "Release")
       .withArgs(0n, creator.address, recipient.address, parsedAmount, false);
 
     expect(await usdc.balanceOf(recipient.address)).to.equal(parsedAmount);
-    expect((await escrow.getEscrow(0n)).status).to.equal(2n);
+    expect((await escrow.getEscrow(0n)).status).to.equal(3n);
+  });
+
+  it("prevents refund after proof was submitted", async function () {
+    const fixture = await deployFixture();
+    const { escrow, recipient, outsider } = fixture;
+    const { conditionHash } = await createEscrow(fixture);
+
+    await escrow.connect(recipient).submitProof(0n, conditionHash);
+    await ethers.provider.send("evm_increaseTime", [7 * 24 * 60 * 60 + 1]);
+    await ethers.provider.send("evm_mine", []);
+
+    await expect(escrow.connect(outsider).refund(0n)).to.be.revertedWithCustomError(escrow, "InvalidStatus");
   });
 
   it("refunds after timeout", async function () {
@@ -85,7 +109,7 @@ describe("EscrowPayments", function () {
       .withArgs(0n, outsider.address, parsedAmount);
 
     expect(await usdc.balanceOf(creator.address)).to.equal(ethers.parseUnits("1000", 6));
-    expect((await escrow.getEscrow(0n)).status).to.equal(3n);
+    expect((await escrow.getEscrow(0n)).status).to.equal(4n);
   });
 
   it("prevents emergency withdraw of locked USDC", async function () {

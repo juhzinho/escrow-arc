@@ -12,6 +12,7 @@ contract EscrowPayments is Ownable, ReentrancyGuard {
     enum EscrowStatus {
         None,
         Funded,
+        ProofSubmitted,
         Released,
         Refunded
     }
@@ -23,10 +24,12 @@ contract EscrowPayments is Ownable, ReentrancyGuard {
         bytes32 conditionHash;
         uint64 createdAt;
         uint64 deadline;
+        uint64 proofSubmittedAt;
         EscrowStatus status;
     }
 
     uint64 public constant DEFAULT_TIMEOUT = 7 days;
+    uint64 public constant PROOF_REVIEW_PERIOD = 2 days;
 
     IERC20 public immutable usdc;
     uint256 public nextEscrowId;
@@ -50,6 +53,12 @@ contract EscrowPayments is Ownable, ReentrancyGuard {
         address indexed recipient,
         uint256 amount,
         bool byProof
+    );
+    event ProofSubmitted(
+        uint256 indexed escrowId,
+        address indexed recipient,
+        bytes32 suppliedHash,
+        uint64 reviewDeadline
     );
     event Refund(uint256 indexed escrowId, address indexed caller, uint256 amount);
     event EmergencyWithdraw(address indexed token, address indexed to, uint256 amount);
@@ -114,6 +123,7 @@ contract EscrowPayments is Ownable, ReentrancyGuard {
             conditionHash: conditionHash,
             createdAt: createdAt,
             deadline: deadline,
+            proofSubmittedAt: 0,
             status: EscrowStatus.Funded
         });
 
@@ -126,30 +136,52 @@ contract EscrowPayments is Ownable, ReentrancyGuard {
         emit Deposit(escrowId, msg.sender, recipient, amount, conditionHash, deadline);
     }
 
-    function releaseByProof(
+    function submitProof(
         uint256 escrowId,
         bytes32 suppliedHash
     ) external nonReentrant escrowExists(escrowId) onlyRecipient(escrowId) inStatus(escrowId, EscrowStatus.Funded) {
         Escrow storage escrow = escrows[escrowId];
         if (suppliedHash != escrow.conditionHash) revert InvalidProof();
+        if (block.timestamp > escrow.deadline) revert TimeoutNotReached();
 
-        escrow.status = EscrowStatus.Released;
-        lockedUsdc -= escrow.amount;
+        escrow.status = EscrowStatus.ProofSubmitted;
+        escrow.proofSubmittedAt = uint64(block.timestamp);
 
-        usdc.safeTransfer(escrow.recipient, escrow.amount);
-        emit Release(escrowId, escrow.creator, escrow.recipient, escrow.amount, true);
+        emit ProofSubmitted(
+            escrowId,
+            escrow.recipient,
+            suppliedHash,
+            escrow.proofSubmittedAt + PROOF_REVIEW_PERIOD
+        );
     }
 
     function manualRelease(
         uint256 escrowId
-    ) external nonReentrant escrowExists(escrowId) onlyCreator(escrowId) inStatus(escrowId, EscrowStatus.Funded) {
+    ) external nonReentrant escrowExists(escrowId) onlyCreator(escrowId) {
         Escrow storage escrow = escrows[escrowId];
+        if (
+            escrow.status != EscrowStatus.Funded &&
+            escrow.status != EscrowStatus.ProofSubmitted
+        ) revert InvalidStatus();
 
         escrow.status = EscrowStatus.Released;
         lockedUsdc -= escrow.amount;
 
         usdc.safeTransfer(escrow.recipient, escrow.amount);
         emit Release(escrowId, escrow.creator, escrow.recipient, escrow.amount, false);
+    }
+
+    function finalizeRelease(
+        uint256 escrowId
+    ) external nonReentrant escrowExists(escrowId) onlyRecipient(escrowId) inStatus(escrowId, EscrowStatus.ProofSubmitted) {
+        Escrow storage escrow = escrows[escrowId];
+        if (block.timestamp < escrow.proofSubmittedAt + PROOF_REVIEW_PERIOD) revert TimeoutNotReached();
+
+        escrow.status = EscrowStatus.Released;
+        lockedUsdc -= escrow.amount;
+
+        usdc.safeTransfer(escrow.recipient, escrow.amount);
+        emit Release(escrowId, escrow.creator, escrow.recipient, escrow.amount, true);
     }
 
     function refund(

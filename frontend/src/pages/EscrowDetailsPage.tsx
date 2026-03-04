@@ -1,3 +1,4 @@
+import { isHexString } from "ethers";
 import { useEffect, useState } from "react";
 import { Link, useLocation, useParams } from "react-router-dom";
 import { toast } from "react-toastify";
@@ -39,6 +40,7 @@ export default function EscrowDetailsPage() {
         conditionHash: item.conditionHash,
         createdAt: item.createdAt,
         deadline: item.deadline,
+        proofSubmittedAt: item.proofSubmittedAt,
         status: Number(item.status) as Escrow["status"]
       });
     } catch {
@@ -91,7 +93,12 @@ export default function EscrowDetailsPage() {
   }
 
   const remaining = formatTimeRemaining(escrow.deadline);
+  const reviewRemaining =
+    escrow.proofSubmittedAt > 0n
+      ? formatTimeRemaining(escrow.proofSubmittedAt + 2n * 24n * 60n * 60n)
+      : null;
   const canRefund = escrow.status === 1 && remaining === null;
+  const canFinalizeRelease = escrow.status === 2 && reviewRemaining === null;
   const isCreator = escrow.creator.toLowerCase() === account?.toLowerCase();
   const isRecipient = escrow.recipient.toLowerCase() === account?.toLowerCase();
 
@@ -113,17 +120,18 @@ export default function EscrowDetailsPage() {
         </div>
         <div className="text-3xl font-semibold text-ink">{formatUsdc(escrow.amount)} USDC</div>
         <div className="grid gap-3 text-sm text-slate-600">
-          <div>{t.creatorLabel}: {shortenAddress(escrow.creator)}</div>
+          <div title={escrow.creator}>{t.creatorLabel}: {shortenAddress(escrow.creator)}</div>
           <a href={getExplorerAddressUrl(escrow.creator)} target="_blank" rel="noreferrer" className="text-sea">
             {t.creatorLabel}
           </a>
-          <div>{t.recipientLabel}: {shortenAddress(escrow.recipient)}</div>
+          <div title={escrow.recipient}>{t.recipientLabel}: {shortenAddress(escrow.recipient)}</div>
           <a href={getExplorerAddressUrl(escrow.recipient)} target="_blank" rel="noreferrer" className="text-sea">
             {t.recipientLabel}
           </a>
           <div>{t.deadlineLabel}: {formatDate(escrow.deadline)}</div>
           <div>{t.timeRemaining}: {remaining ?? t.refundAvailable}</div>
-          <div>{t.hashLabel}: {shortenHash(escrow.conditionHash)}</div>
+          {escrow.status === 2 ? <div>{t.reviewWindow}: {reviewRemaining ?? t.finalizeRelease}</div> : null}
+          <div title={escrow.conditionHash}>{t.hashLabel}: {shortenHash(escrow.conditionHash)}</div>
           <div>
             {t.contractAddress}:{" "}
             <a href={getExplorerAddressUrl(CONTRACT_ADDRESS)} target="_blank" rel="noreferrer" className="text-sea">
@@ -132,9 +140,9 @@ export default function EscrowDetailsPage() {
           </div>
         </div>
 
-        {escrow.status === 1 ? (
+        {escrow.status === 1 || escrow.status === 2 ? (
           <div className="grid gap-3 pt-2">
-            {isRecipient ? (
+            {isRecipient && escrow.status === 1 ? (
               <>
                 <input
                   className="field"
@@ -145,12 +153,17 @@ export default function EscrowDetailsPage() {
                 <button
                   type="button"
                   className="primary-btn"
-                  onClick={() =>
+                  onClick={() => {
+                    if (!isHexString(proof, 32)) {
+                      toast.error(t.invalidProofHash);
+                      return;
+                    }
+
                     void sendTx(async () => {
                       const contract = await getEscrowWriteContract(provider!);
-                      return contract.releaseByProof(escrow.id, proof || "0x");
-                    }, t.releaseProof)
-                  }
+                      return contract.submitProof(escrow.id, proof);
+                    }, t.releaseProof);
+                  }}
                 >
                   {t.releaseProof}
                 </button>
@@ -169,6 +182,21 @@ export default function EscrowDetailsPage() {
                 }
               >
                 {t.manualRelease}
+              </button>
+            ) : null}
+
+            {isRecipient && canFinalizeRelease ? (
+              <button
+                type="button"
+                className="primary-btn"
+                onClick={() =>
+                  void sendTx(async () => {
+                    const contract = await getEscrowWriteContract(provider!);
+                    return contract.finalizeRelease(escrow.id);
+                  }, t.finalizeRelease)
+                }
+              >
+                {t.finalizeRelease}
               </button>
             ) : null}
 
